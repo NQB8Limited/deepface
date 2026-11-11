@@ -1,0 +1,53 @@
+name: Build Image
+
+on:
+  workflow_dispatch: # Allows you to manually trigger the build from the GitHub UI
+
+env:
+  REGISTRY: ghcr.io
+  # Converts repository name to lowercase (required by Docker) and appends '-base'
+  IMAGE_NAME: NQB8Limited/deepface
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-24.04-arm
+
+    # Required permissions to push to GitHub Container Registry
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }} # Automatically provided by GitHub
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+            type=sha,format=short
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: .Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Magic happens here: utilizes GitHub Actions cache to speed up builds
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
