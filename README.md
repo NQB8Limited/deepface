@@ -1,3 +1,51 @@
+# Presence Biometric Sidecar (DeepFace)
+
+Internal FastAPI sidecar serving Presence's biometric contract on top of
+`deepface` (`serengil/deepface` fork, v0.0.105). This repository builds the
+`ghcr.io/nqb8limited/deepface` image via `.github/workflows/build.yml`.
+
+**Only these routes exist** — the upstream stock API (`/verify`, `/represent`,
+`/analyze`) is intentionally not exposed:
+
+| Route | Purpose |
+|---|---|
+| `GET /health` | Liveness probe — `{status, engine, model, detector}` |
+| `POST /v1/liveness-and-embed` | Enrolment — passive anti-spoofing (`MiniFASNet`) + face embedding |
+| `POST /v1/liveness-and-verify` | Check-in — liveness + cosine match against a stored embedding |
+
+All `/v1/*` routes require the `X-Biometric-Secret` header (constant-time
+compared with `hmac.compare_digest`). `DeepFace.analyze()` is prohibited
+(BR-028 — no demographic/emotion inference) and no image is ever written to
+disk — base64 payloads are decoded strictly in memory.
+
+## Environment
+
+| Variable | Required | Default | Notes |
+|---|---|---|---|
+| `DEEPFACE_SHARED_SECRET` | **yes** | — | `503` on `/v1/*` when unset; `401` on mismatch |
+| `DEEPFACE_MODEL_NAME` | no | `ArcFace` | Recognition model |
+| `DEEPFACE_DETECTOR_BACKEND` | no | `retinaface` | Face detector |
+| `DEEPFACE_COSINE_THRESHOLD` | no | `0.68` | Match distance cutoff |
+| `PORT` | no | `8001` | Listen port |
+| `DEEPFACE_HOME` | no | `/opt/deepface` | Model weights cache — mount a volume here |
+
+## Local run
+
+```bash
+docker build -t presence-deepface .
+docker run --rm -p 127.0.0.1:8001:8001 \
+  -e DEEPFACE_SHARED_SECRET=local-dev-secret \
+  -v presence-deepface-weights:/opt/deepface \
+  presence-deepface
+```
+
+Contract tests: `pytest tests/`.
+
+---
+
+*Upstream fork README below — kept for library reference; it does not describe
+this service.*
+
 # deepface
 
 <div align="center">

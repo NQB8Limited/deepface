@@ -1,0 +1,13 @@
+.git
+.github
+.codeboarding
+.vscode
+benchmarks
+boosted
+docker
+experiments
+icon
+scripts
+**/__pycache__
+**/*.pyc
+.env
